@@ -1,102 +1,98 @@
-# 🎓 AI Quiz Assistant
+# 🎓 QuizCraft — AI Quiz Assistant
 
-A stateless, production-ready RAG-powered quiz generator. Upload a document (PDF, TXT, DOCX), configure your quiz preferences, and get an AI-generated quiz backed strictly by the document content — no hallucination.
+An AI-powered, stateless quiz generator built with **FastAPI** and **Gemini 2.5 Flash**.  
+Upload any document → configure your quiz → get instant questions backed strictly by your content.
+
+🔗 **Live Demo**: [your-app.vercel.app](https://your-app.vercel.app)  
+📦 **GitHub**: [github.com/dss07ab17/AI-Quiz-Assistant](https://github.com/dss07ab17/AI-Quiz-Assistant)
 
 ---
 
-## Architecture
+## ✨ Features
+
+- 📄 Upload **PDF, TXT, or DOCX** files (up to 5 MB)
+- 🧠 **RAG Pipeline** — questions generated strictly from your document
+- 🎯 **MCQ, Descriptive, or Mixed** question formats
+- 🎚️ **Easy, Medium, Hard** difficulty levels
+- 🔢 Choose **1–20 questions** per quiz
+- ⬇️ **Download quiz as PDF** (clean, print-ready)
+- 🔒 **No database, no auth, no storage** — fully stateless
+- ⚡ Powered by **Gemini 2.5 Flash** + **Gemini Embeddings**
+
+---
+
+## 🏗️ Architecture
 ```
-Document Upload
-      │
-      ▼
-┌─────────────────────────────────────────────────┐
-│                 FastAPI Backend                  │
-│                                                  │
-│  1. Text Extraction (pypdf / mammoth / native)   │
-│  2. Text Cleaning & Normalization                │
-│  3. Chunking (800 chars, 150 overlap)            │
-│  4. Gemini Embeddings → In-Memory Vector Store   │
-│              [returned to client]                │
-│                                                  │
-│  5. User configures quiz (n, difficulty, type)   │
-│  6. Query Embedding → Cosine Similarity Search   │
-│  7. Top-5 Chunks → Context                       │
-│  8. Gemini 1.5 Flash → Structured Quiz JSON      │
-└─────────────────────────────────────────────────┘
-      │
-      ▼
-React Frontend (React 18, Tailwind CSS)
-  - MCQ cards with reveal toggle
-  - Descriptive cards with expandable key points
-```
-
----
-
-## Tech Stack
-
-| Layer      | Choice                        |
-|------------|-------------------------------|
-| Backend    | FastAPI (Python)              |
-| AI Model   | Gemini 1.5 Flash              |
-| Embeddings | gemini-embedding-001          |
-| RAG        | In-memory cosine similarity   |
-| PDF Parse  | pypdf                         |
-| DOCX Parse | mammoth                       |
-| Frontend   | React 18 + Tailwind CSS (CDN) |
-| Deploy     | Vercel                        |
-
----
-
-## Local Setup
-```bash
-# 1. Clone the repo
-git clone https://github.com/yourname/quiz-assistant
-cd quiz-assistant
-
-# 2. Create virtual environment
-python -m venv venv
-source venv/bin/activate      # Windows: venv\Scripts\activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Set environment variable
-cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY
-
-# 5. Run locally
-uvicorn main:app --reload --port 8000
+Document Upload (PDF / TXT / DOCX)
+          │
+          ▼
+┌─────────────────────────────────────────────────────┐
+│                  FastAPI Backend                     │
+│                                                      │
+│  1. Text Extraction  (pypdf / mammoth / native)      │
+│  2. Text Cleaning & Normalization                    │
+│  3. Chunking         (800 chars, 150 overlap)        │
+│  4. Gemini Embeddings → In-Memory Vector Store       │
+│               [returned to browser]                  │
+│                                                      │
+│  5. User configures quiz (n, difficulty, type)       │
+│  6. Query Embedding → Cosine Similarity Search       │
+│  7. Top-5 Chunks → Context                          │
+│  8. Gemini 2.5 Flash → Structured Quiz JSON          │
+└─────────────────────────────────────────────────────┘
+          │
+          ▼
+React Frontend (React 18 + Tailwind CSS)
+  ├── MCQ cards with reveal toggle
+  ├── Descriptive cards with expandable key points
+  └── Download quiz as clean PDF
 ```
 
-Visit: http://localhost:8000
+---
+
+## 🧠 How RAG Works
+
+**Retrieval-Augmented Generation (RAG)** ensures every question comes from your document — not the AI's general knowledge.
+
+| Step | What happens |
+|------|-------------|
+| **1. Chunking** | Document split into 800-char overlapping windows |
+| **2. Embedding** | Each chunk converted to a vector via `text-embedding-004` |
+| **3. Retrieval** | Quiz request embedded → cosine similarity → top 5 chunks selected |
+| **4. Generation** | Only those 5 chunks sent to Gemini 2.5 Flash as context |
+| **5. Output** | Strict JSON quiz — MCQ or descriptive, no hallucination |
 
 ---
 
-## Deploy to Vercel
+## 🛠️ Tech Stack
 
-1. Push this repo to GitHub.
-2. Go to [vercel.com](https://vercel.com) → **New Project** → Import repo.
-3. In **Environment Variables**, add `GEMINI_API_KEY`.
-4. Click **Deploy**.
-
-> ⚠️ **Important**: The RAG pipeline (embedding + generation) takes 10–30 seconds.
-> Vercel **Hobby** plan has a 10-second function timeout — you may hit this limit.
-> **Vercel Pro** plan allows 60-second timeouts, which is sufficient.
-> For Hobby plan, consider deploying to [Railway](https://railway.app) or [Render](https://render.com) instead.
+| Layer | Technology |
+|-------|-----------|
+| Backend | FastAPI (Python) |
+| AI Model | Gemini 2.5 Flash |
+| Embeddings | text-embedding-004 |
+| RAG | In-memory cosine similarity |
+| PDF Parse | pypdf |
+| DOCX Parse | mammoth |
+| Frontend | React 18 + Tailwind CSS (CDN) |
+| PDF Export | jsPDF (CDN) |
+| Deployment | Vercel |
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 ```
 quiz-assistant/
 ├── main.py               # FastAPI app + API routes
+├── api/
+│   └── index.py          # Vercel entry point
 ├── lib/
 │   ├── __init__.py
-│   ├── file_parser.py    # PDF / DOCX / TXT text extraction
+│   ├── file_parser.py    # PDF / DOCX / TXT extraction
 │   ├── rag.py            # Chunking, embeddings, cosine similarity
 │   └── quiz_generator.py # Gemini quiz generation
 ├── static/
-│   └── index.html        # React SPA (no build step needed)
+│   └── index.html        # React SPA (no build step)
 ├── requirements.txt
 ├── vercel.json
 ├── .env.example
@@ -105,24 +101,81 @@ quiz-assistant/
 
 ---
 
-## RAG Pipeline Explanation
+## 🚀 Local Setup
+```bash
+# 1. Clone the repo
+git clone https://github.com/dss07ab17/AI-Quiz-Assistant.git
+cd AI-Quiz-Assistant
 
-**Retrieval-Augmented Generation (RAG)** grounds the AI's output in your document:
+# 2. Create virtual environment
+python -m venv venv
 
-1. **Chunking** — the document is split into overlapping 800-character windows so no important context is cut off at boundaries.
-2. **Embeddings** — each chunk is converted to a 3072-dimensional vector by `gemini-embedding-001`. These vectors capture semantic meaning.
-3. **Retrieval** — when you click Generate, your quiz request is also embedded, then scored against all chunk embeddings using cosine similarity. The top 5 most relevant chunks are selected.
-4. **Generation** — only those 5 chunks are sent as context to Gemini 1.5 Flash. The model is strictly instructed not to use outside knowledge.
+# 3. Activate virtual environment
+source venv/bin/activate        # Mac / Linux
+venv\Scripts\activate           # Windows
 
-This means every question is traceable back to your document.
+# 4. Install dependencies
+pip install -r requirements.txt
+
+# 5. Add your Gemini API key
+cp .env.example .env
+# Open .env and set: GEMINI_API_KEY=your_key_here
+
+# 6. Run the app
+uvicorn main:app --reload --port 8000
+```
+
+Visit: **http://localhost:8000**
+
+> Get a free Gemini API key at: https://aistudio.google.com/apikey
 
 ---
 
-## Future Improvements
+## ☁️ Deploy to Vercel
 
-- Streaming quiz generation for faster perceived response
-- Export quiz as PDF or JSON
-- Score tracking across sessions (using Vercel KV)
-- Support for scanned PDFs via OCR
-- Multi-document support
-- Configurable chunk size and top-k retrieval
+1. Push repo to GitHub
+2. Go to [vercel.com](https://vercel.com) → **New Project** → Import repo
+3. Add environment variable:
+   - `GEMINI_API_KEY` = your Gemini API key
+4. Click **Deploy**
+
+> ⚠️ **Vercel Hobby Plan** has a 10-second function timeout. The RAG pipeline
+> takes 15–30 seconds, so you may hit this limit. Consider upgrading to
+> **Vercel Pro** (60s timeout) or deploy to
+> [Railway](https://railway.app) / [Render](https://render.com) for free
+> unlimited timeouts.
+
+---
+
+## 🔑 Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `GEMINI_API_KEY` | Your Google Gemini API key |
+
+Create a `.env` file based on `.env.example`:
+```
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+---
+
+## 🚧 Future Improvements
+
+- ⏱️ Streaming generation for faster perceived response
+- 📊 Score tracking — answer MCQs and see your final score
+- 🗂️ Multi-document support — merge multiple files
+- 🔍 Source highlighting — show which chunk each question came from
+- 🌐 Share quiz via link
+- 🖨️ Print-optimized PDF layout
+- 🌍 Multi-language support
+
+---
+
+## 📄 License
+
+MIT License — free to use, modify, and distribute.
+
+---
+
+<p align="center">Built with ❤️ using FastAPI · Gemini · RAG</p>
