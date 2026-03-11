@@ -66,6 +66,7 @@
     .upload-zone:hover, .upload-zone.dragging { border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.06); box-shadow: inset 0 0 30px rgba(99,102,241,0.05); }
 
     .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+    .num-questions-box { background: rgba(99,102,241,0.4); border: 1px solid rgba(99,102,241,0.5); color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; text-shadow: 0 0 8px rgba(0,0,0,0.5); }
     .pill-purple { background: rgba(99,102,241,0.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.25); }
     .pill-green  { background: rgba(34,197,94,0.12);  color: #86efac; border: 1px solid rgba(34,197,94,0.25); }
     .pill-amber  { background: rgba(245,158,11,0.12); color: #fcd34d; border: 1px solid rgba(245,158,11,0.25); }
@@ -210,10 +211,9 @@ function QuizConfig({ uploadData, onQuizGenerated }) {
             <p className="text-sm font-semibold text-white">Number of Questions</p>
             <p className="text-xs mt-0.5" style={{color:'rgba(255,255,255,0.35)'}}>Slide to pick how many to generate</p>
           </div>
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg grad-text"
-            style={{background:'rgba(99,102,241,0.12)',border:'1px solid rgba(99,102,241,0.2)'}}>
-            {numQ}
-          </div>
+      <div className="num-questions-box w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg">
+         {numQ}
+        </div>
         </div>
         <input type="range" min="1" max="20" value={numQ} onChange={e => setNumQ(+e.target.value)} />
         <div className="flex justify-between text-xs" style={{color:'rgba(255,255,255,0.25)'}}>
@@ -372,146 +372,97 @@ function generatePDF(quiz, meta) {
   const newPage = () => { doc.addPage(); y = M; };
   const checkY = (need = 10) => { if (y + need > PH - M) newPage(); };
 
-  const txt = (text, size, r, g, b, bold = false, indent = 0) => {
+  const writeLine = (text, size, r, g, b, bold = false, indent = 0) => {
     doc.setFontSize(size);
     doc.setTextColor(r, g, b);
     doc.setFont('helvetica', bold ? 'bold' : 'normal');
     const lines = doc.splitTextToSize(text, CW - indent);
     checkY(lines.length * (size * 0.45) + 4);
     doc.text(lines, M + indent, y);
-    y += lines.length * (size * 0.45) + 3;
+    y += lines.length * (size * 0.45) + 4;
   };
 
-  const fillRect = (ry, rh, r, g, b, radius = 2) => {
-    doc.setFillColor(r, g, b);
-    doc.roundedRect(M, ry, CW, rh, radius, radius, 'F');
+  const divider = (r = 200, g = 200, b = 200) => {
+    checkY(6);
+    doc.setDrawColor(r, g, b);
+    doc.setLineWidth(0.3);
+    doc.line(M, y, PW - M, y);
+    y += 6;
   };
 
-  // ── Page background ──
-  doc.setFillColor(8, 6, 22);
+  // ── White background ──
+  doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, PW, PH, 'F');
 
-  // ── Header banner ──
-  doc.setFillColor(35, 25, 80);
-  doc.roundedRect(M - 4, y - 4, CW + 8, 44, 4, 4, 'F');
-  doc.setFillColor(99, 102, 241);
-  doc.roundedRect(M - 4, y - 4, 4, 44, 2, 2, 'F');
+  // ── Title ──
+  writeLine('AI Quiz Assistant', 20, 30, 30, 30, true);
+  writeLine(`Generated on ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}`, 9, 120, 120, 120);
+  writeLine(`Difficulty: ${meta.difficulty}   |   Format: ${meta.qType.toUpperCase()}   |   Questions: ${meta.numQ}`, 9, 120, 120, 120);
+  y += 2;
+  divider(180, 180, 180);
 
-  doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.setTextColor(180, 170, 255);
-  doc.text('AI Quiz Assistant', M + 6, y + 10);
-  doc.setFontSize(9); doc.setFont('helvetica', 'normal'); doc.setTextColor(140, 130, 200);
-  doc.text('Generated via RAG · Powered by Gemini 2.5 Flash', M + 6, y + 20);
-  doc.setFontSize(8.5); doc.setTextColor(100, 90, 160);
-  doc.text(
-    `${(quiz.questions || [...(quiz.mcqs||[]),...(quiz.descriptive||[])]).length ?? meta.numQ} Questions  ·  Difficulty: ${meta.difficulty}  ·  Format: ${meta.qType.toUpperCase()}  ·  ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}`,
-    M + 6, y + 30
-  );
-  y += 54;
-
-  // ── Divider ──
-  doc.setDrawColor(60, 50, 110); doc.setLineWidth(0.3);
-  doc.line(M, y, PW - M, y); y += 8;
-
-  const mcqs  = quiz.type === 'mcq'  ? quiz.questions : (quiz.type === 'mixed' ? quiz.mcqs        : []);
-  const descs = quiz.type === 'desc' ? quiz.questions : (quiz.type === 'mixed' ? quiz.descriptive  : (quiz.type === 'descriptive' ? quiz.questions : []));
+  const mcqs  = quiz.type === 'mcq'  ? quiz.questions : (quiz.type === 'mixed' ? quiz.mcqs : []);
+  const descs = quiz.type === 'descriptive' ? quiz.questions : (quiz.type === 'mixed' ? quiz.descriptive : []);
   let qNum = 0;
 
-  // ── MCQ Section ──
-  if (mcqs && mcqs.length > 0) {
+  // ── MCQs ──
+  if (mcqs?.length > 0) {
     if (quiz.type === 'mixed') {
-      checkY(10);
-      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(120,110,210);
-      doc.text('● MULTIPLE CHOICE', M, y); y += 7;
+      writeLine('MULTIPLE CHOICE QUESTIONS', 11, 60, 60, 60, true);
+      y += 2;
     }
 
     mcqs.forEach((q) => {
       qNum++;
-      checkY(22);
+      checkY(15);
 
-      // Question row
-      fillRect(y - 3, 10, 30, 22, 65);
-      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(140,130,220);
-      doc.text(`Q${qNum}`, M + 3, y + 4);
-      doc.setFontSize(9.5); doc.setFont('helvetica','bold'); doc.setTextColor(220,215,255);
-      const qLines = doc.splitTextToSize(q.question, CW - 16);
-      checkY(qLines.length * 5 + 6);
-      doc.text(qLines, M + 13, y + 4);
-      y += qLines.length * 5 + 7;
+      // Question
+      writeLine(`Q${qNum}. ${q.question}`, 10.5, 20, 20, 20, true);
 
       // Options
       Object.entries(q.options).forEach(([key, val]) => {
-        checkY(8);
         const isCorrect = key === q.correct_answer;
-        if (isCorrect) {
-          doc.setFillColor(20, 60, 35);
-          doc.roundedRect(M + 5, y - 2.5, CW - 5, 7, 1.5, 1.5, 'F');
-          doc.setDrawColor(40, 140, 70); doc.setLineWidth(0.3);
-          doc.roundedRect(M + 5, y - 2.5, CW - 5, 7, 1.5, 1.5, 'S');
-        } else {
-          doc.setFillColor(20, 18, 40);
-          doc.roundedRect(M + 5, y - 2.5, CW - 5, 7, 1.5, 1.5, 'F');
-        }
-        doc.setFontSize(9);
-        doc.setFont('helvetica', isCorrect ? 'bold' : 'normal');
-        doc.setTextColor(isCorrect ? 100 : 130, isCorrect ? 210 : 125, isCorrect ? 110 : 175);
-        const optLines = doc.splitTextToSize(`${key}.  ${val}${isCorrect ? '   ✓ Correct' : ''}`, CW - 18);
-        doc.text(optLines, M + 10, y + 2);
-        y += optLines.length * 4.8 + 2;
+        writeLine(
+          `${isCorrect ? '✓' : ' '} ${key}.  ${val}`,
+          10, isCorrect ? 30 : 60, isCorrect ? 130 : 60, isCorrect ? 60 : 60,
+          isCorrect, 4
+        );
       });
 
-      // Explanation
+      // Answer + explanation
+      y += 1;
+      writeLine(`Answer: ${q.correct_answer}`, 9.5, 30, 130, 60, true, 4);
       if (q.explanation) {
-        checkY(10);
-        y += 1;
-        doc.setFillColor(15, 35, 25);
-        doc.roundedRect(M + 5, y - 2, CW - 5, 7, 1.5, 1.5, 'F');
-        doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(80, 170, 100);
-        const expLines = doc.splitTextToSize(`💡 ${q.explanation}`, CW - 18);
-        checkY(expLines.length * 4.2 + 3);
-        doc.text(expLines, M + 10, y + 2.5);
-        y += expLines.length * 4.2 + 5;
+        writeLine(`Explanation: ${q.explanation}`, 9, 100, 100, 100, false, 4);
       }
-      y += 4;
+      y += 3;
+      divider(220, 220, 220);
     });
   }
 
-  // ── Descriptive Section ──
-  if (descs && descs.length > 0) {
+  // ── Descriptive ──
+  if (descs?.length > 0) {
     if (quiz.type === 'mixed') {
-      checkY(10); y += 2;
-      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(160,110,210);
-      doc.text('✍ DESCRIPTIVE', M, y); y += 7;
+      y += 2;
+      writeLine('DESCRIPTIVE QUESTIONS', 11, 60, 60, 60, true);
+      y += 2;
     }
 
     descs.forEach((q) => {
       qNum++;
-      checkY(22);
+      checkY(15);
 
-      fillRect(y - 3, 10, 40, 20, 70);
-      doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(180,130,240);
-      doc.text(`Q${qNum}`, M + 3, y + 4);
-      doc.setFontSize(9.5); doc.setFont('helvetica','bold'); doc.setTextColor(225,210,255);
-      const qLines = doc.splitTextToSize(q.question, CW - 16);
-      checkY(qLines.length * 5 + 6);
-      doc.text(qLines, M + 13, y + 4);
-      y += qLines.length * 5 + 7;
+      writeLine(`Q${qNum}. ${q.question}`, 10.5, 20, 20, 20, true);
 
       if (q.expected_points?.length > 0) {
-        checkY(8);
-        doc.setFontSize(8.5); doc.setFont('helvetica','bold'); doc.setTextColor(150,110,200);
-        doc.text('Key Points to Cover:', M + 5, y); y += 5;
-
-        q.expected_points.forEach((pt) => {
-          checkY(7);
-          doc.setFillColor(25, 18, 50);
-          doc.roundedRect(M + 5, y - 2.5, CW - 5, 7, 1.5, 1.5, 'F');
-          doc.setFontSize(8.5); doc.setFont('helvetica','normal'); doc.setTextColor(185,165,230);
-          const ptLines = doc.splitTextToSize(`▸  ${pt}`, CW - 18);
-          doc.text(ptLines, M + 10, y + 2);
-          y += ptLines.length * 4.5 + 2;
+        y += 1;
+        writeLine('Key Points:', 9.5, 80, 80, 80, true, 4);
+        q.expected_points.forEach((pt, i) => {
+          writeLine(`${i + 1}.  ${pt}`, 9.5, 60, 60, 60, false, 8);
         });
       }
-      y += 5;
+      y += 3;
+      divider(220, 220, 220);
     });
   }
 
@@ -519,32 +470,109 @@ function generatePDF(quiz, meta) {
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    // bg
-    doc.setFillColor(8, 6, 22);
-    doc.rect(0, PH - 14, PW, 14, 'F');
-    doc.setDrawColor(40, 35, 80); doc.setLineWidth(0.3);
-    doc.line(M, PH - 13, PW - M, PH - 13);
-    doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(70, 60, 110);
-    doc.text('Generated by AI Quiz Assistant · Powered by Gemini 2.5 Flash · RAG Pipeline', M, PH - 7);
-    doc.text(`Page ${i} / ${totalPages}`, PW - M - 18, PH - 7);
+    doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.3);
+    doc.line(M, PH - 14, PW - M, PH - 14);
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(160, 160, 160);
+    doc.text('Generated by AI Quiz Assistant · Powered by Gemini 2.5 Flash', M, PH - 8);
+    doc.text(`Page ${i} / ${totalPages}`, PW - M - 18, PH - 8);
   }
 
-  const fname = `quiz-${meta.difficulty.toLowerCase()}-${meta.qType}-${Date.now()}.pdf`;
-  doc.save(fname);
+  doc.save(`quiz-${meta.difficulty.toLowerCase()}-${meta.qType}-${Date.now()}.pdf`);
+}
+
+// ─── Plain Text Generator ────────────────────────────────────────────────────
+function generatePlainText(quiz, meta) {
+  const mcqs  = quiz.type === 'mcq'  ? quiz.questions : (quiz.type === 'mixed' ? quiz.mcqs : []);
+  const descs = quiz.type === 'descriptive' ? quiz.questions : (quiz.type === 'mixed' ? quiz.descriptive : []);
+  const total = (mcqs?.length || 0) + (descs?.length || 0);
+  
+  let text = '';
+  
+  // Header
+  text += '='.repeat(70) + '\n';
+  text += 'AI QUIZ ASSISTANT\n';
+  text += '='.repeat(70) + '\n\n';
+  text += `Generated on: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' })}\n`;
+  text += `Difficulty: ${meta.difficulty}  |  Format: ${meta.qType.toUpperCase()}  |  Questions: ${total}\n`;
+  text += '='.repeat(70) + '\n\n';
+  
+  let qNum = 0;
+  
+  // Multiple Choice Questions
+  if (mcqs?.length > 0) {
+    if (quiz.type === 'mixed') {
+      text += 'MULTIPLE CHOICE QUESTIONS\n';
+      text += '-'.repeat(70) + '\n\n';
+    }
+    
+    mcqs.forEach((q) => {
+      qNum++;
+      text += `Q${qNum}. ${q.question}\n\n`;
+      
+      // Options
+      Object.entries(q.options).forEach(([key, val]) => {
+        const isCorrect = key === q.correct_answer;
+        text += `   ${key}. ${val}${isCorrect ? ' ✓ (Correct)' : ''}\n`;
+      });
+      
+      text += `\n   Answer: ${q.correct_answer}\n`;
+      if (q.explanation) {
+        text += `   Explanation: ${q.explanation}\n`;
+      }
+      text += '\n' + '-'.repeat(70) + '\n\n';
+    });
+  }
+  
+  // Descriptive Questions
+  if (descs?.length > 0) {
+    if (quiz.type === 'mixed') {
+      text += '\nDESCRIPTIVE QUESTIONS\n';
+      text += '-'.repeat(70) + '\n\n';
+    }
+    
+    descs.forEach((q) => {
+      qNum++;
+      text += `Q${qNum}. ${q.question}\n\n`;
+      
+      if (q.expected_points?.length > 0) {
+        text += '   Key Points to Cover:\n';
+        q.expected_points.forEach((pt, i) => {
+          text += `   ${i + 1}. ${pt}\n`;
+        });
+      }
+      text += '\n' + '-'.repeat(70) + '\n\n';
+    });
+  }
+  
+  // Footer
+  text += '\n' + '='.repeat(70) + '\n';
+  text += 'Generated by AI Quiz Assistant · Powered by Gemini 2.5 Flash · RAG Pipeline\n';
+  text += '='.repeat(70) + '\n';
+  
+  // Create and download text file
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `quiz-${meta.difficulty.toLowerCase()}-${meta.qType}-${Date.now()}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ─── Quiz Display ─────────────────────────────────────────────────────────────
 function QuizDisplay({ quiz, meta, onReset, onRegenerate }) {
-  const [downloading, setDownloading] = useState(false);
+  const [downloadingText, setDownloadingText] = useState(false);
   const mcqs  = quiz.type === 'mcq'  ? quiz.questions : (quiz.type === 'mixed' ? quiz.mcqs        : []);
   const descs = quiz.type === 'descriptive' ? quiz.questions : (quiz.type === 'mixed' ? quiz.descriptive : []);
   const total = (mcqs?.length || 0) + (descs?.length || 0);
 
-  const handleDownload = () => {
-    setDownloading(true);
-    try { generatePDF(quiz, meta); }
-    catch(e) { alert('PDF generation failed: ' + e.message); }
-    finally { setTimeout(() => setDownloading(false), 800); }
+  const handleDownloadText = () => {
+    setDownloadingText(true);
+    try { generatePlainText(quiz, meta); }
+    catch(e) { alert('Text generation failed: ' + e.message); }
+    finally { setTimeout(() => setDownloadingText(false), 500); }
   };
 
   return (
@@ -594,21 +622,23 @@ function QuizDisplay({ quiz, meta, onReset, onRegenerate }) {
       )}
 
       {/* Actions */}
-      <div className="flex gap-3 pt-2">
-        <button onClick={onRegenerate}
-          className="flex-1 py-3 rounded-xl text-sm font-medium transition-all"
-          style={{background:'rgba(99,102,241,0.1)',border:'1px solid rgba(99,102,241,0.25)',color:'#a5b4fc'}}>
-          🔄 Regenerate
-        </button>
-        <button onClick={handleDownload} disabled={downloading}
-          className="flex-1 py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2"
-          style={{background:'rgba(34,197,94,0.1)',border:'1px solid rgba(34,197,94,0.25)',color:'#86efac',opacity:downloading?0.7:1}}>
-          {downloading ? <><div className="spinner" style={{width:14,height:14,borderTopColor:'#86efac'}}></div> <span>Saving…</span></> : '⬇️ Download PDF'}
-        </button>
-        <button onClick={onReset}
-          className="flex-1 py-3 rounded-xl text-sm font-medium transition-all"
-          style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',color:'rgba(255,255,255,0.5)'}}>
-          📄 New Doc
+      <div className="space-y-3 pt-2">
+        <div className="flex gap-3">
+          <button onClick={onRegenerate}
+            className="flex-1 py-3 rounded-xl text-sm font-medium transition-all"
+            style={{background:'rgba(99,102,241,0.1)',border:'1px solid rgba(99,102,241,0.25)',color:'#a5b4fc'}}>
+            🔄 Regenerate
+          </button>
+          <button onClick={onReset}
+            className="flex-1 py-3 rounded-xl text-sm font-medium transition-all"
+            style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',color:'rgba(255,255,255,0.5)'}}>
+            📄 New Doc
+          </button>
+        </div>
+        <button onClick={handleDownloadText} disabled={downloadingText}
+          className="w-full py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2"
+          style={{background:'rgba(59,130,246,0.1)',border:'1px solid rgba(59,130,246,0.25)',color:'#93c5fd',opacity:downloadingText?0.7:1}}>
+          {downloadingText ? <><div className="spinner" style={{width:14,height:14,borderTopColor:'#93c5fd'}}></div> <span>Saving…</span></> : '📝 Download Text'}
         </button>
       </div>
     </div>
