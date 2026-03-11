@@ -3,7 +3,7 @@
 An AI-powered, stateless quiz generator built with **FastAPI** and **Gemini 2.5 Flash**.  
 Upload any document → configure your quiz → get instant questions backed strictly by your content.
 
-🔗 **Live Demo**: [your-app.vercel.app](https://quiz-craft-jade.vercel.app)  
+🔗 **Live Demo**: [your-app.vercel.app](https://quiz-craft-amber-tau.vercel.app)  
 📦 **GitHub**: [github.com/dss07ab17/AI-Quiz-Assistant](https://github.com/dss07ab17/AI-Quiz-Assistant)
 
 ---
