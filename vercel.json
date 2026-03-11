@@ -1,26 +1,23 @@
 {
+  "version": 2,
   "builds": [
     {
-      "src": "main.py",
-      "use": "@vercel/python"
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "main.py"
+      "dest": "api/index.py"
     }
   ],
   "functions": {
-    "main.py": {
+    "api/index.py": {
       "maxDuration": 60
     }
-  },
-  "excludeFiles": [
-    "**/*.pyc",
-    "**/__pycache__/**",
-    ".git/**",
-    ".venv/**",
-    "*.md"
-  ]
+  }
 }
