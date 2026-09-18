@@ -4,6 +4,8 @@ Stateless RAG pipeline: Upload → Chunk → Embed → Retrieve → Generate Qui
 """
 
 import os
+import json
+from typing import Optional, Dict, Any
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
@@ -13,6 +15,17 @@ from pydantic import BaseModel
 from lib.file_parser import parse_file
 from lib.rag import build_vector_store, retrieve_chunks
 from lib.quiz_generator import generate_quiz
+
+# Load rubric config
+RUBRIC_PATH = os.path.join(os.path.dirname(__file__), "config", "rubric.json")
+def _load_rubric():
+    try:
+        with open(RUBRIC_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+APP_RUBRIC = _load_rubric()
 
 app = FastAPI(title="AI Quiz Assistant", version="1.0.0")
 
@@ -33,6 +46,7 @@ class GenerateRequest(BaseModel):
     num_questions: int
     difficulty: str            # Easy | Medium | Hard
     question_type: str         # mcq | descriptive | mixed
+    rubric_override: Optional[Dict[str, Any]] = None
 
 
 # ─────────────────────────────────────────────
@@ -104,6 +118,12 @@ async def generate(req: GenerateRequest):
     if req.question_type not in ("mcq", "descriptive", "mixed"):
         raise HTTPException(status_code=400, detail="question_type must be mcq, descriptive, or mixed.")
 
+    # Merge stored rubric with any override provided in the request
+    merged_rubric = json.loads(json.dumps(APP_RUBRIC)) if APP_RUBRIC else {}
+    if req.rubric_override:
+        for k, v in req.rubric_override.items():
+            merged_rubric[k] = {**merged_rubric.get(k, {}), **v}
+
     context_text = await retrieve_chunks(
         vector_store=req.vector_store,
         query=f"Generate {req.difficulty} {req.question_type} quiz questions about the main topics",
@@ -115,9 +135,30 @@ async def generate(req: GenerateRequest):
         num_questions=req.num_questions,
         difficulty=req.difficulty,
         question_type=req.question_type,
+        rubric=merged_rubric.get(req.difficulty)
     )
 
     return quiz
+
+
+@app.get("/api/rubric")
+async def get_rubric():
+    return APP_RUBRIC
+
+
+@app.post("/api/rubric")
+async def update_rubric(rubric: Dict[str, Any]):
+    # Basic validation — expect dict with difficulty keys
+    if not isinstance(rubric, dict):
+        raise HTTPException(status_code=400, detail="Invalid rubric format; expected an object.")
+    try:
+        with open(RUBRIC_PATH, 'w', encoding='utf-8') as f:
+            json.dump(rubric, f, indent=2)
+        global APP_RUBRIC
+        APP_RUBRIC = rubric
+        return APP_RUBRIC
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write rubric: {e}")
 
 
 # ─────────────────────────────────────────────
