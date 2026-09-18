@@ -70,7 +70,7 @@ FORMAT_MAP = {
 }
 
 
-def _build_prompt(context: str, num_questions: int, difficulty: str, question_type: str) -> str:
+def _build_prompt(context: str, num_questions: int, difficulty: str, question_type: str, rubric: Dict[str, Any] = None) -> str:
     fmt = FORMAT_MAP[question_type]
 
     if question_type == "mixed":
@@ -82,7 +82,7 @@ def _build_prompt(context: str, num_questions: int, difficulty: str, question_ty
     else:
         type_instruction = f"Generate exactly {num_questions} {question_type.upper()} questions."
 
-    return f"""Context (use ONLY this content to generate the quiz):
+    prompt = f"""Context (use ONLY this content to generate the quiz):
 ---
 {context}
 ---
@@ -101,6 +101,27 @@ Rules:
 
 {fmt}"""
 
+    # Append rubric instructions if provided
+    if rubric:
+      try:
+        time_min = rubric.get('time_min')
+        time_max = rubric.get('time_max')
+        bloom = rubric.get('bloom')
+        partial = rubric.get('partial_credit')
+        points = rubric.get('points')
+        rubric_lines = []
+        if time_min is not None or time_max is not None:
+          rubric_lines.append(f"Target solve time: {time_min}-{time_max} minutes")
+        if bloom:
+          rubric_lines.append(f"Bloom levels: {', '.join(bloom)}")
+        rubric_lines.append(f"Partial credit allowed: {'yes' if partial else 'no'}")
+        rubric_lines.append(f"Point value per question: {points}")
+        prompt += "\nRubric:\n" + "\n".join(["- " + l for l in rubric_lines]) + "\n"
+      except Exception:
+        # ignore rubric formatting errors — prompt still works without it
+        pass
+
+    return prompt
 
 def _extract_json(text: str) -> Dict[str, Any]:
     """Extract and parse JSON from model output, stripping any markdown fences."""
@@ -111,11 +132,12 @@ def _extract_json(text: str) -> Dict[str, Any]:
 
 
 async def generate_quiz(
-    context: str,
-    num_questions: int,
-    difficulty: str,
-    question_type: str,
-    max_retries: int = 2,
+  context: str,
+  num_questions: int,
+  difficulty: str,
+  question_type: str,
+  rubric: Dict[str, Any] = None,
+  max_retries: int = 2,
 ) -> Dict[str, Any]:
     """
     Call Gemini 1.5 Flash to generate a structured quiz from the retrieved context.
@@ -126,7 +148,7 @@ async def generate_quiz(
         raise RuntimeError("GEMINI_API_KEY environment variable not set.")
 
     client = genai.Client(api_key=api_key)
-    prompt = _build_prompt(context, num_questions, difficulty, question_type)
+    prompt = _build_prompt(context, num_questions, difficulty, question_type, rubric)
     loop = asyncio.get_event_loop()
 
     for attempt in range(max_retries + 1):
