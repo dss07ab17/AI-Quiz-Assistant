@@ -136,19 +136,27 @@ async def generate(req: GenerateRequest):
         for k, v in req.rubric_override.items():
             merged_rubric[k] = {**merged_rubric.get(k, {}), **v}
 
-    context_text = await retrieve_chunks(
-        vector_store=req.vector_store,
-        query=f"Generate {req.difficulty} {req.question_type} quiz questions about the main topics",
-        top_k=5,
-    )
+    try:
+        context_text = await retrieve_chunks(
+            vector_store=req.vector_store,
+            query=f"Generate {req.difficulty} {req.question_type} quiz questions about the main topics",
+            top_k=5,
+        )
 
-    quiz = await generate_quiz(
-        context=context_text,
-        num_questions=req.num_questions,
-        difficulty=req.difficulty,
-        question_type=req.question_type,
-        rubric=merged_rubric.get(req.difficulty)
-    )
+        quiz = await generate_quiz(
+            context=context_text,
+            num_questions=req.num_questions,
+            difficulty=req.difficulty,
+            question_type=req.question_type,
+            rubric=merged_rubric.get(req.difficulty)
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Quiz generation service failed: {exc}"
+        ) from exc
 
     return quiz
 
