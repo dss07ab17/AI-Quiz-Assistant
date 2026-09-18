@@ -83,14 +83,26 @@ async def upload_file(file: UploadFile = File(...)):
             detail="Unsupported file type. Only PDF, TXT, and DOCX are accepted."
         )
 
-    text = parse_file(content, ext)
+    try:
+        text = parse_file(content, ext)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Could not read the uploaded file: {exc}") from exc
+
     if not text.strip():
         raise HTTPException(
             status_code=400,
             detail="No readable text found in file. Scanned/image PDFs are not supported."
         )
 
-    vector_store = await build_vector_store(text)
+    try:
+        vector_store = await build_vector_store(text)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Embedding service failed: {exc}"
+        ) from exc
 
     return {
         "filename": filename,
