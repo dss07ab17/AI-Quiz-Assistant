@@ -23,7 +23,7 @@ EMBED_MODEL = "gemini-embedding-001"
 
 
 def _get_client() -> genai.Client:
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY environment variable not set.")
     return genai.Client(api_key=api_key)

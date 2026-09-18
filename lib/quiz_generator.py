@@ -143,7 +143,7 @@ async def generate_quiz(
     Call Gemini 1.5 Flash to generate a structured quiz from the retrieved context.
     Retries up to max_retries times on JSON parse failure.
     """
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY environment variable not set.")
 
