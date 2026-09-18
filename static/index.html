@@ -162,7 +162,7 @@ function UploadSection({ onUploaded }) {
 }
 
 // ─── Quiz Config ──────────────────────────────────────────────────────────────
-function QuizConfig({ uploadData, onQuizGenerated, rubricText, setRubricText }) {
+function QuizConfig({ uploadData, onQuizGenerated }) {
   const [numQ, setNumQ] = useState(5);
   const [difficulty, setDifficulty] = useState('Medium');
   const [qType, setQType] = useState('mcq');
@@ -183,13 +183,9 @@ function QuizConfig({ uploadData, onQuizGenerated, rubricText, setRubricText }) 
   const handleGenerate = async () => {
     setError(null); setLoading(true);
     try {
-      // Try to parse rubric override if provided
-      let rubric_override = undefined;
-      try { rubric_override = rubricText ? JSON.parse(rubricText) : undefined; } catch (e) { throw new Error('Rubric JSON is invalid.'); }
-
       const res = await fetch('/api/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vector_store: uploadData.vector_store, num_questions: numQ, difficulty, question_type: qType, rubric_override }),
+        body: JSON.stringify({ vector_store: uploadData.vector_store, num_questions: numQ, difficulty, question_type: qType }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Generation failed.');
@@ -239,14 +235,6 @@ function QuizConfig({ uploadData, onQuizGenerated, rubricText, setRubricText }) 
           ))}
         </div>
         {difficulty && <p className="text-xs text-center" style={{color:'rgba(255,255,255,0.35)'}}>{difficultyConfig[difficulty].desc}</p>}
-      </div>
-
-      <div className="glass-card rounded-2xl p-5 space-y-3">
-        <p className="text-sm font-semibold text-white">Thresholds / Rubric (JSON)</p>
-        <p className="text-xs mt-0.5" style={{color:'rgba(255,255,255,0.35)'}}>Optional per-difficulty thresholds (sent as an override)</p>
-        <textarea value={rubricText} onChange={e => setRubricText(e.target.value)} rows={6}
-          style={{width:'100%',background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',color:'rgba(255,255,255,0.8)',padding:12,borderRadius:12,fontSize:12}}/>
-        <p className="text-xs" style={{color:'rgba(255,255,255,0.28)'}}>Example keys: time_min, time_max, bloom (array), partial_credit, points</p>
       </div>
 
       <div className="glass-card rounded-2xl p-5 space-y-3">
@@ -663,13 +651,6 @@ function App() {
   const [uploadData, setUploadData] = useState(null);
   const [quiz, setQuiz] = useState(null);
   const [quizMeta, setQuizMeta] = useState(null);
-  const [rubricText, setRubricText] = useState('');
-
-  React.useEffect(() => {
-    fetch('/api/rubric').then(r => r.json()).then(data => {
-      setRubricText(JSON.stringify(data, null, 2));
-    }).catch(() => {});
-  }, []);
 
   const steps = [
     { key: 'upload', label: 'Upload',    icon: '📄' },
@@ -710,7 +691,7 @@ function App() {
         <div className="glass rounded-3xl p-6 shadow-2xl"
           style={{boxShadow:'0 25px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)'}}>
           {step==='upload' && <UploadSection onUploaded={(data) => { setUploadData(data); setStep('config'); }} />}
-          {step==='config' && <QuizConfig uploadData={uploadData} rubricText={rubricText} setRubricText={setRubricText} onQuizGenerated={(data, meta) => { setQuiz(data); setQuizMeta(meta); setStep('quiz'); }} />}
+          {step==='config' && <QuizConfig uploadData={uploadData} onQuizGenerated={(data, meta) => { setQuiz(data); setQuizMeta(meta); setStep('quiz'); }} />}
           {step==='quiz'   && <QuizDisplay quiz={quiz} meta={quizMeta} onReset={() => { setStep('upload'); setUploadData(null); setQuiz(null); }} onRegenerate={() => setStep('config')} />}
         </div>
 
