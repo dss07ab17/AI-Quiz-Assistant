@@ -1,0 +1,23 @@
+{
+  "Easy": {
+    "time_min": 0,
+    "time_max": 2,
+    "bloom": ["Remember", "Understand"],
+    "partial_credit": false,
+    "points": 1
+  },
+  "Medium": {
+    "time_min": 3,
+    "time_max": 7,
+    "bloom": ["Apply", "Analyze"],
+    "partial_credit": true,
+    "points": 2
+  },
+  "Hard": {
+    "time_min": 8,
+    "time_max": 30,
+    "bloom": ["Evaluate", "Create"],
+    "partial_credit": true,
+    "points": 4
+  }
+}
